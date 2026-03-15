@@ -1,98 +1,230 @@
-import { Image } from 'expo-image';
-import { Platform, StyleSheet } from 'react-native';
+import { Colors, Spacing, Typography } from '@/constants/Design';
+import { useTranslations } from '@/src/utils/i18n';
+import { useRouter } from 'expo-router';
+import { useSQLiteContext } from 'expo-sqlite';
+import { useEffect } from 'react';
+import { ActivityIndicator, SectionList, StyleSheet, Text, TouchableOpacity, View, Alert } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
 
-import { HelloWave } from '@/components/hello-wave';
-import ParallaxScrollView from '@/components/parallax-scroll-view';
-import { ThemedText } from '@/components/themed-text';
-import { ThemedView } from '@/components/themed-view';
-import { Link } from 'expo-router';
+import { useActivityStore } from '@/src/features/activities/store';
+import { useLabelStore } from '@/src/features/labels/store';
 
-export default function HomeScreen() {
+import { ActivityCard } from '@/components/ActivityCard';
+
+export default function Dashboard() {
+  const t = useTranslations();
+  const db = useSQLiteContext();
+  const router = useRouter();
+
+  const { activities, fetchActivities, isLoading: activitiesLoading } = useActivityStore();
+  const { labels, fetchLabels, isLoading: labelsLoading } = useLabelStore();
+
+  useEffect(() => {
+    fetchLabels(db);
+    fetchActivities(db);
+  }, []);
+
+  const getLabelForActivity = (labelId: number) => {
+    return labels.find((l) => l.id === labelId);
+  };
+
+  const isLoading = activitiesLoading || labelsLoading;
+
+  // Hierarchical view: Sections are Labels
+  const getGroupedActivities = () => {
+    const sections: { title: string; color: string; data: typeof activities }[] = [];
+    
+    // Group by existing labels
+    labels.forEach(label => {
+      const labelActivities = activities.filter(a => a.label_id === label.id);
+      if (labelActivities.length > 0) {
+        sections.push({
+          title: label.name,
+          color: label.color || Colors.primary,
+          data: labelActivities,
+        });
+      }
+    });
+
+    return sections;
+  };
+
   return (
-    <ParallaxScrollView
-      headerBackgroundColor={{ light: '#A1CEDC', dark: '#1D3D47' }}
-      headerImage={
-        <Image
-          source={require('@/assets/images/partial-react-logo.png')}
-          style={styles.reactLogo}
-        />
-      }>
-      <ThemedView style={styles.titleContainer}>
-        <ThemedText type="title">Welcome!</ThemedText>
-        <HelloWave />
-      </ThemedView>
-      <ThemedView style={styles.stepContainer}>
-        <ThemedText type="subtitle">Step 1: Try it</ThemedText>
-        <ThemedText>
-          Edit <ThemedText type="defaultSemiBold">app/(tabs)/index.tsx</ThemedText> to see changes.
-          Press{' '}
-          <ThemedText type="defaultSemiBold">
-            {Platform.select({
-              ios: 'cmd + d',
-              android: 'cmd + m',
-              web: 'F12',
-            })}
-          </ThemedText>{' '}
-          to open developer tools.
-        </ThemedText>
-      </ThemedView>
-      <ThemedView style={styles.stepContainer}>
-        <Link href="/modal">
-          <Link.Trigger>
-            <ThemedText type="subtitle">Step 2: Explore</ThemedText>
-          </Link.Trigger>
-          <Link.Preview />
-          <Link.Menu>
-            <Link.MenuAction title="Action" icon="cube" onPress={() => alert('Action pressed')} />
-            <Link.MenuAction
-              title="Share"
-              icon="square.and.arrow.up"
-              onPress={() => alert('Share pressed')}
-            />
-            <Link.Menu title="More" icon="ellipsis">
-              <Link.MenuAction
-                title="Delete"
-                icon="trash"
-                destructive
-                onPress={() => alert('Delete pressed')}
-              />
-            </Link.Menu>
-          </Link.Menu>
-        </Link>
+    <View style={styles.container}>
+      <View style={styles.header}>
+        <View style={styles.headerTitleRow}>
+          <View style={styles.headerIconContainer}>
+            <Ionicons name="git-branch-outline" size={20} color={Colors.primary} />
+          </View>
+          <Text style={styles.headerTitle}>{t.notificator || 'Notificator'}</Text>
+        </View>
+        <View style={styles.headerActions}>
+          <TouchableOpacity 
+            style={styles.headerIconButton} 
+            onPress={() => router.push('/labels/new')}
+          >
+            <Ionicons name="pricetag-outline" size={24} color={Colors.textSecondary} />
+          </TouchableOpacity>
+          <TouchableOpacity 
+            style={styles.headerAddButton} 
+            onPress={() => {
+              if (labels.length === 0) {
+                Alert.alert('No Labels', 'Please create a label first before adding an activity.');
+                router.push('/labels/new');
+              } else {
+                router.push('/new/schedule');
+              }
+            }}
+          >
+            <Ionicons name="add" size={24} color={Colors.white} />
+          </TouchableOpacity>
+        </View>
+      </View>
 
-        <ThemedText>
-          {`Tap the Explore tab to learn more about what's included in this starter app.`}
-        </ThemedText>
-      </ThemedView>
-      <ThemedView style={styles.stepContainer}>
-        <ThemedText type="subtitle">Step 3: Get a fresh start</ThemedText>
-        <ThemedText>
-          {`When you're ready, run `}
-          <ThemedText type="defaultSemiBold">npm run reset-project</ThemedText> to get a fresh{' '}
-          <ThemedText type="defaultSemiBold">app</ThemedText> directory. This will move the current{' '}
-          <ThemedText type="defaultSemiBold">app</ThemedText> to{' '}
-          <ThemedText type="defaultSemiBold">app-example</ThemedText>.
-        </ThemedText>
-      </ThemedView>
-    </ParallaxScrollView>
+      {isLoading ? (
+        <View style={styles.centered}>
+          <ActivityIndicator size="large" color={Colors.primary} />
+        </View>
+      ) : labels.length === 0 ? (
+        <View style={styles.centered}>
+          <Text style={[Typography.secondary, { marginBottom: Spacing.md }]}>
+            No labels exist yet.
+          </Text>
+          <TouchableOpacity 
+            style={styles.createLabelBtn} 
+            onPress={() => router.push('/labels/new')}
+          >
+            <Text style={styles.createLabelText}>Create Label</Text>
+          </TouchableOpacity>
+        </View>
+      ) : (
+        <SectionList
+          sections={getGroupedActivities()}
+          keyExtractor={(item) => item.id.toString()}
+          contentContainerStyle={styles.list}
+          renderSectionHeader={({ section: { title, color } }) => (
+            <View style={styles.sectionHeaderWrap}>
+               <View style={[styles.sectionBullet, { backgroundColor: color }]} />
+               <Text style={styles.sectionHeader}>{title}</Text>
+            </View>
+          )}
+          renderItem={({ item, index, section }) => {
+            const isLastNode = index === section.data.length - 1;
+            return (
+              <ActivityCard
+                activity={item}
+                label={getLabelForActivity(item.label_id)}
+                isLastNode={isLastNode}
+                onPress={() => router.push(`/${item.id}/schedule`)}
+              />
+            );
+          }}
+          ListEmptyComponent={
+            <View style={styles.centered}>
+              <Text style={Typography.secondary}>No activities yet. Create your first one!</Text>
+            </View>
+          }
+        />
+      )}
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
-  titleContainer: {
+  container: {
+    flex: 1,
+    backgroundColor: '#F8FAFC',
+  },
+  header: {
+    paddingTop: 60, // approximate SafeArea top
+    paddingHorizontal: 16,
+    paddingBottom: 16,
+    backgroundColor: 'rgba(248, 250, 252, 0.9)',
+    borderBottomWidth: 1,
+    borderBottomColor: '#E2E8F0',
     flexDirection: 'row',
     alignItems: 'center',
+    justifyContent: 'space-between',
+    zIndex: 10,
+  },
+  headerTitleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+  },
+  headerIconContainer: {
+    backgroundColor: 'rgba(99, 102, 241, 0.1)',
+    padding: 8,
+    borderRadius: 8,
+  },
+  headerTitle: {
+    fontSize: 18,
+    fontWeight: '700',
+    color: '#0F172A',
+    letterSpacing: -0.5,
+  },
+  headerActions: {
+    flexDirection: 'row',
     gap: 8,
   },
-  stepContainer: {
-    gap: 8,
+  headerIconButton: {
+    padding: 8,
+    borderRadius: 8,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  headerAddButton: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: Colors.primary,
+    justifyContent: 'center',
+    alignItems: 'center',
+    shadowColor: Colors.primary,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.3,
+    shadowRadius: 4,
+    elevation: 3,
+  },
+  list: {
+    padding: 16,
+    paddingBottom: 100, // For FAB
+  },
+  centered: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginTop: 40,
+  },
+  sectionHeaderWrap: {
+    flexDirection: 'row',
+    alignItems: 'center',
     marginBottom: 8,
+    paddingHorizontal: 4,
+    marginTop: 24,
   },
-  reactLogo: {
-    height: 178,
-    width: 290,
-    bottom: 0,
-    left: 0,
-    position: 'absolute',
+  sectionBullet: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    marginRight: 8,
+  },
+  sectionHeader: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#64748B',
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+  },
+  createLabelBtn: {
+    backgroundColor: Colors.primary,
+    paddingHorizontal: Spacing.lg,
+    paddingVertical: Spacing.sm,
+    borderRadius: 8,
+  },
+  createLabelText: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: Colors.white,
   },
 });
