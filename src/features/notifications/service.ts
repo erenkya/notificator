@@ -1,12 +1,14 @@
 import * as Notifications from 'expo-notifications';
 import { Platform } from 'react-native';
 
-// Set up the notification handler for how it behaves when the app is in the foreground
+// Set up the notification handler for how it behaves when the app is in the foreground AND background
 Notifications.setNotificationHandler({
   handleNotification: async () => ({
     shouldShowAlert: true,
     shouldPlaySound: true,
     shouldSetBadge: true,
+    shouldShowBanner: true,
+    shouldShowList: true,
   }),
 });
 

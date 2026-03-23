@@ -3,7 +3,8 @@ import { useTranslations } from '@/src/utils/i18n';
 import { isToday, isTomorrow } from 'date-fns';
 import { useSQLiteContext } from 'expo-sqlite';
 import React, { useEffect } from 'react';
-import { SectionList, StyleSheet, Text, View } from 'react-native';
+import { SectionList, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
 
 import { Activity, useActivityStore } from '@/src/features/activities/store';
 import { useLabelStore } from '@/src/features/labels/store';
@@ -55,20 +56,16 @@ export default function CalendarScreen() {
     });
 
     const sections: Section[] = [];
-    if (today.length) sections.push({ title: 'Today', data: today });
-    if (tomorrow.length) sections.push({ title: 'Tomorrow', data: tomorrow });
-    if (upcoming.length) sections.push({ title: 'Upcoming', data: upcoming });
-    if (unscheduled.length) sections.push({ title: 'Unscheduled', data: unscheduled });
+    if (today.length) sections.push({ title: t.today || 'Today', data: today });
+    if (tomorrow.length) sections.push({ title: t.tomorrow || 'Tomorrow', data: tomorrow });
+    if (upcoming.length) sections.push({ title: t.upcoming || 'Upcoming', data: upcoming });
+    if (unscheduled.length) sections.push({ title: t.unscheduled || 'Unscheduled', data: unscheduled });
 
     return sections;
   };
 
   return (
     <View style={styles.container}>
-      <View style={styles.header}>
-        <Text style={Typography.title}>{t.calendar || 'Calendar'}</Text>
-        <Text style={Typography.secondary}>Upcoming Reminders</Text>
-      </View>
 
       <SectionList
         sections={getGroupedActivities()}
@@ -86,7 +83,7 @@ export default function CalendarScreen() {
         )}
         ListEmptyComponent={
            <View style={styles.centered}>
-             <Text style={Typography.secondary}>Your calendar is wonderfully empty.</Text>
+             <Text style={Typography.secondary}>{t.emptyCalendar || 'Your calendar is wonderfully empty.'}</Text>
            </View>
         }
       />
@@ -102,10 +99,17 @@ const styles = StyleSheet.create({
   header: {
     paddingTop: Spacing.xl + 20,
     paddingHorizontal: Spacing.md,
-    paddingBottom: Spacing.md,
+    paddingBottom: Spacing.sm,
     backgroundColor: Colors.white,
     borderBottomWidth: 1,
     borderBottomColor: Colors.border,
+  },
+  backBtn: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   list: {
     padding: Spacing.md,

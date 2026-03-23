@@ -7,9 +7,9 @@
     "icon": "./assets/images/icon.png",
     "scheme": "notificator",
     "userInterfaceStyle": "automatic",
-    "newArchEnabled": true,
     "ios": {
-      "supportsTablet": true
+      "supportsTablet": true,
+      "bundleIdentifier": "com.yogo3r3n.notificator"
     },
     "android": {
       "adaptiveIcon": {
@@ -18,8 +18,7 @@
         "backgroundImage": "./assets/images/android-icon-background.png",
         "monochromeImage": "./assets/images/android-icon-monochrome.png"
       },
-      "edgeToEdgeEnabled": true,
-      "predictiveBackGestureEnabled": false
+      "package": "com.yogo3r3n.notificator"
     },
     "web": {
       "output": "static",
@@ -46,6 +45,12 @@
     "experiments": {
       "typedRoutes": true,
       "reactCompiler": true
+    },
+    "extra": {
+      "router": {},
+      "eas": {
+        "projectId": "cadb5d23-575a-44f9-862e-f4f33dded34d"
+      }
     }
   }
 }

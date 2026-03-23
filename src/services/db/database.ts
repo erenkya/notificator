@@ -9,6 +9,7 @@ export async function initDatabase(db: SQLiteDatabase) {
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       name TEXT NOT NULL,
       color TEXT,
+      icon TEXT,
       notes TEXT
     );
 
@@ -41,9 +42,15 @@ export async function initDatabase(db: SQLiteDatabase) {
     );
   `);
 
-  // Safe migration for existing DB. Ignored if time column already exists.
+  // Safe migration for existing DB. Ignored if columns already exist.
   try {
     await db.execAsync('ALTER TABLE activities ADD COLUMN time TEXT;');
+  } catch (error) {
+    // Ignore duplicate column error
+  }
+
+  try {
+    await db.execAsync('ALTER TABLE labels ADD COLUMN icon TEXT;');
   } catch (error) {
     // Ignore duplicate column error
   }

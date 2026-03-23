@@ -3,7 +3,8 @@ import { useTranslations } from '@/src/utils/i18n';
 import { useRouter } from 'expo-router';
 import { useSQLiteContext } from 'expo-sqlite';
 import { useEffect } from 'react';
-import { FlatList, StyleSheet, Text, View } from 'react-native';
+import { Alert, FlatList, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
 
 import { FloatingActionButton } from '@/components/FloatingActionButton';
 import { LabelCard } from '@/components/LabelCard';
@@ -14,19 +15,35 @@ export default function LabelsScreen() {
   const router = useRouter();
   const t = useTranslations();
   
-  const { labels, fetchLabels } = useLabelStore();
+  const { labels, fetchLabels, deleteLabel } = useLabelStore();
 
   useEffect(() => {
     fetchLabels(db);
   }, []);
 
+  const handleDeleteLabel = (labelId: number, labelName: string) => {
+    Alert.alert(
+      'Delete Label',
+      `Are you sure you want to delete "${labelName}"? This will also delete ALL activities in this label.`,
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Delete',
+          style: 'destructive',
+          onPress: async () => {
+            await deleteLabel(db, labelId);
+          },
+        },
+      ]
+    );
+  };
+
   return (
     <View style={styles.container}>
       <View style={styles.header}>
-        <Text style={Typography.title}>{t.labels || 'Labels'}</Text>
-        <Text style={Typography.secondary}>
-          Manage your categories
-        </Text>
+        <TouchableOpacity style={styles.backBtn} onPress={() => router.back()}>
+          <Ionicons name="chevron-back" size={24} color={Colors.textSecondary} />
+        </TouchableOpacity>
       </View>
 
       <FlatList
@@ -37,6 +54,7 @@ export default function LabelsScreen() {
           <LabelCard
             label={item}
             onPress={() => router.push(`/labels/${item.id}`)}
+            onDelete={() => handleDeleteLabel(item.id, item.name)}
           />
         )}
         ListEmptyComponent={
@@ -59,10 +77,17 @@ const styles = StyleSheet.create({
   header: {
     paddingTop: Spacing.xl + 20,
     paddingHorizontal: Spacing.md,
-    paddingBottom: Spacing.md,
+    paddingBottom: Spacing.sm,
     backgroundColor: Colors.white,
     borderBottomWidth: 1,
     borderBottomColor: Colors.border,
+  },
+  backBtn: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   list: {
     padding: Spacing.md,

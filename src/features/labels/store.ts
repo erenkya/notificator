@@ -5,6 +5,7 @@ export interface Label {
   id: number;
   name: string;
   color: string | null;
+  icon: string | null;
   notes: string | null;
 }
 
@@ -47,8 +48,8 @@ export const useLabelStore = create<LabelState>((set, get) => ({
     set({ isLoading: true, error: null });
     try {
       const result = await db.runAsync(
-        'INSERT INTO labels (name, color, notes) VALUES (?, ?, ?)',
-        [label.name, label.color, label.notes]
+        'INSERT INTO labels (name, color, icon, notes) VALUES (?, ?, ?, ?)',
+        [label.name, label.color, label.icon, label.notes]
       );
       
       const newLabel: Label = {
@@ -72,8 +73,8 @@ export const useLabelStore = create<LabelState>((set, get) => ({
     set({ isLoading: true, error: null });
     try {
       await db.runAsync(
-        'UPDATE labels SET name = ?, color = ?, notes = ? WHERE id = ?',
-        [label.name, label.color, label.notes, id]
+        'UPDATE labels SET name = ?, color = ?, icon = ?, notes = ? WHERE id = ?',
+        [label.name, label.color, label.icon, label.notes, id]
       );
 
       set((state) => ({

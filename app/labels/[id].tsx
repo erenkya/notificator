@@ -9,18 +9,48 @@ import { useLabelStore } from '@/src/features/labels/store';
 import { useTranslations } from '@/src/utils/i18n';
 
 const PALETTE = [
-  '#6366F1', // Indigo (Primary)
-  '#F43F5E', // Rose
-  '#F59E0B', // Amber
-  '#10B981', // Emerald
-  '#0EA5E9', // Sky
-  '#8B5CF6', // Violet
-  '#64748B', // Slate
-  '#EC4899', // Pink
-  '#14B8A6', // Teal
-  '#F97316', // Orange
-  '#4F46E5', // Indigo-600
-  '#84CC16', // Lime
+  '#6366F1', '#F43F5E', '#F59E0B', '#10B981',
+  '#0EA5E9', '#8B5CF6', '#64748B', '#EC4899',
+  '#14B8A6', '#F97316', '#4F46E5', '#84CC16',
+];
+
+const ICON_OPTIONS: { name: keyof typeof Ionicons.glyphMap; label: string }[] = [
+  { name: 'briefcase', label: 'Work' },
+  { name: 'home', label: 'Home' },
+  { name: 'person', label: 'Personal' },
+  { name: 'fitness', label: 'Fitness' },
+  { name: 'heart', label: 'Health' },
+  { name: 'school', label: 'Education' },
+  { name: 'cart', label: 'Shopping' },
+  { name: 'restaurant', label: 'Food' },
+  { name: 'car', label: 'Travel' },
+  { name: 'musical-notes', label: 'Music' },
+  { name: 'game-controller', label: 'Gaming' },
+  { name: 'code-slash', label: 'Coding' },
+  { name: 'book', label: 'Reading' },
+  { name: 'call', label: 'Calls' },
+  { name: 'mail', label: 'Mail' },
+  { name: 'cash', label: 'Finance' },
+  { name: 'calendar', label: 'Calendar' },
+  { name: 'star', label: 'Priority' },
+  { name: 'flag', label: 'Goals' },
+  { name: 'alarm', label: 'Reminder' },
+  { name: 'paw', label: 'Pets' },
+  { name: 'leaf', label: 'Nature' },
+  { name: 'airplane', label: 'Flight' },
+  { name: 'bed', label: 'Sleep' },
+  { name: 'barbell', label: 'Gym' },
+  { name: 'camera', label: 'Photo' },
+  { name: 'film', label: 'Movies' },
+  { name: 'gift', label: 'Gifts' },
+  { name: 'medkit', label: 'Medical' },
+  { name: 'bulb', label: 'Ideas' },
+  { name: 'construct', label: 'Tools' },
+  { name: 'globe', label: 'Web' },
+  { name: 'chatbubbles', label: 'Chat' },
+  { name: 'megaphone', label: 'Announce' },
+  { name: 'rocket', label: 'Launch' },
+  { name: 'trophy', label: 'Achievement' },
 ];
 
 export default function LabelDetailScreen() {
@@ -34,6 +64,7 @@ export default function LabelDetailScreen() {
 
   const [name, setName] = useState('');
   const [color, setColor] = useState(PALETTE[0]);
+  const [icon, setIcon] = useState<string>('briefcase');
 
   useEffect(() => {
     if (!isNew) {
@@ -41,6 +72,7 @@ export default function LabelDetailScreen() {
       if (existing) {
         setName(existing.name);
         setColor(existing.color || PALETTE[0]);
+        setIcon(existing.icon || 'briefcase');
       }
     }
   }, [id, labels]);
@@ -53,8 +85,9 @@ export default function LabelDetailScreen() {
 
     const payload = {
       name: name.trim(),
-      notes: null, // Removing notes to match HTML simplicity
+      notes: null,
       color,
+      icon,
     };
 
     if (isNew) {
@@ -67,37 +100,51 @@ export default function LabelDetailScreen() {
 
   const handleDelete = async () => {
     if (!isNew) {
-      Alert.alert(t.delete || 'Delete Label', t.deleteLabelWarning || 'This will also delete ALL activities in this label. Are you sure?', [
-        { text: t.cancel || 'Cancel', style: 'cancel' },
-        { 
-          text: t.delete || 'Delete', 
-          style: 'destructive',
-          onPress: async () => {
-            await deleteLabel(db, Number(id));
-            router.push('/labels'); // Route fully back to list, as related activities auto-cascade
-          }
-        }
-      ]);
+      Alert.alert(
+        t.delete || 'Delete Label',
+        t.deleteLabelWarning || 'This will also delete ALL activities in this label. Are you sure?',
+        [
+          { text: t.cancel || 'Cancel', style: 'cancel' },
+          {
+            text: t.delete || 'Delete',
+            style: 'destructive',
+            onPress: async () => {
+              await deleteLabel(db, Number(id));
+              router.back();
+            },
+          },
+        ]
+      );
     }
   };
 
   return (
-    <KeyboardAvoidingView 
+    <KeyboardAvoidingView
       style={styles.container}
       behavior={Platform.OS === 'ios' ? 'padding' : undefined}
     >
-      {/* Background Dim (Simulating Bottom Sheet from modal route) */}
       <View style={styles.sheetContainer}>
         {/* Handle */}
         <View style={styles.handleWrap}>
           <View style={styles.handle} />
         </View>
 
-        <ScrollView contentContainerStyle={styles.content}>
-          {/* Large Header Title */}
-          <Text style={styles.pageTitle}>
-            {isNew ? (t.createNewLabel || 'Create New Label') : (t.editLabel || 'Edit Label')}
-          </Text>
+        {/* Top bar with delete button for edit mode */}
+        <View style={styles.topBar}>
+          <View style={{ width: 36 }} />
+          <View style={[styles.previewCircle, { backgroundColor: `${color}20` }]}>
+            <Ionicons name={icon as any} size={24} color={color} />
+          </View>
+          {!isNew ? (
+            <TouchableOpacity style={styles.topDeleteBtn} onPress={handleDelete}>
+              <Ionicons name="trash-outline" size={20} color="#F43F5E" />
+            </TouchableOpacity>
+          ) : (
+            <View style={{ width: 36 }} />
+          )}
+        </View>
+
+        <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
 
           {/* Label Name Input */}
           <View style={styles.inputGroup}>
@@ -111,14 +158,10 @@ export default function LabelDetailScreen() {
             />
           </View>
 
-          {/* Color Picker UI */}
+          {/* Color Picker - compact row */}
           <View style={styles.inputGroup}>
-            <View style={styles.colorHeader}>
-              <Text style={styles.label}>{t.selectIconColor || 'Select Icon Color'}</Text>
-              <Text style={styles.presetText}>{PALETTE.length} {t.presets || 'presets'}</Text>
-            </View>
-            
-            <View style={styles.colorGrid}>
+            <Text style={styles.label}>{t.selectIconColor || 'Color'}</Text>
+            <View style={styles.colorRow}>
               {PALETTE.map((hex) => {
                 const isSelected = color === hex;
                 return (
@@ -128,8 +171,8 @@ export default function LabelDetailScreen() {
                     onPress={() => setColor(hex)}
                     style={[
                       styles.colorWrap,
-                      { backgroundColor: `${hex}26` }, // 15% opacity hex
-                      isSelected ? { borderColor: hex } : { borderColor: 'transparent' }
+                      { backgroundColor: `${hex}26` },
+                      isSelected ? { borderColor: hex } : { borderColor: 'transparent' },
                     ]}
                   >
                     <View style={[styles.colorCircle, { backgroundColor: hex }]} />
@@ -139,20 +182,43 @@ export default function LabelDetailScreen() {
             </View>
           </View>
 
-          {/* Action Button */}
-          <View style={styles.actions}>
-            <TouchableOpacity style={styles.saveBtn} onPress={handleSave}>
-              <Text style={styles.saveBtnText}>{isNew ? (t.createLabel || 'Create Label') : (t.saveLabel || 'Save Label')}</Text>
-              {isNew && <Ionicons name="add-circle" size={20} color={Colors.white} />}
-            </TouchableOpacity>
-
-            {!isNew && (
-              <TouchableOpacity style={styles.deleteBtn} onPress={handleDelete}>
-                <Text style={styles.deleteBtnText}>{t.delete || 'Delete'}</Text>
-              </TouchableOpacity>
-            )}
+          {/* Icon Picker - compact grid */}
+          <View style={styles.inputGroup}>
+            <Text style={styles.label}>{'Icon'}</Text>
+            <View style={styles.iconGrid}>
+              {ICON_OPTIONS.map((opt) => {
+                const isSelected = icon === opt.name;
+                return (
+                  <TouchableOpacity
+                    key={opt.name}
+                    activeOpacity={0.7}
+                    onPress={() => setIcon(opt.name)}
+                    style={[
+                      styles.iconWrap,
+                      isSelected && { backgroundColor: `${color}18`, borderColor: color },
+                    ]}
+                  >
+                    <Ionicons
+                      name={opt.name as any}
+                      size={20}
+                      color={isSelected ? color : '#94A3B8'}
+                    />
+                  </TouchableOpacity>
+                );
+              })}
+            </View>
           </View>
+
         </ScrollView>
+
+        {/* Save Button - pinned at bottom */}
+        <View style={styles.bottomBar}>
+          <TouchableOpacity style={styles.saveBtn} onPress={handleSave}>
+            <Text style={styles.saveBtnText}>
+              {isNew ? (t.createLabel || 'Create Label') : (t.saveLabel || 'Save Label')}
+            </Text>
+          </TouchableOpacity>
+        </View>
       </View>
     </KeyboardAvoidingView>
   );
@@ -161,55 +227,60 @@ export default function LabelDetailScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#00000000', // transparent for modal bg
-    justifyContent: 'flex-end',
+    backgroundColor: Colors.white,
   },
   sheetContainer: {
     backgroundColor: Colors.white,
-    borderTopLeftRadius: 32,
-    borderTopRightRadius: 32,
-    flex: 0.85,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: -4 },
-    shadowOpacity: 0.1,
-    shadowRadius: 12,
-    elevation: 20,
+    flex: 1,
   },
   handleWrap: {
     alignItems: 'center',
     paddingTop: 12,
-    paddingBottom: 8,
+    paddingBottom: 4,
   },
   handle: {
     width: 48,
-    height: 6,
+    height: 5,
     backgroundColor: '#E2E8F0',
     borderRadius: 8,
   },
-  content: {
-    paddingHorizontal: 24,
-    paddingBottom: 40,
-    paddingTop: 8,
+  topBar: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 20,
+    paddingVertical: 12,
   },
-  pageTitle: {
-    fontSize: 28,
-    fontWeight: '700',
-    color: '#0F172A',
-    letterSpacing: -0.5,
-    marginBottom: 32,
-    marginTop: 8,
+  previewCircle: {
+    width: 56,
+    height: 56,
+    borderRadius: 28,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  topDeleteBtn: {
+    width: 36,
+    height: 36,
+    borderRadius: 10,
+    backgroundColor: '#FEF2F2',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  content: {
+    paddingHorizontal: 20,
+    paddingBottom: 16,
   },
   inputGroup: {
-    marginBottom: 32,
+    marginBottom: 20,
   },
   label: {
-    fontSize: 12,
+    fontSize: 11,
     fontWeight: '700',
-    color: '#64748B',  // slate-500
+    color: '#64748B',
     textTransform: 'uppercase',
     letterSpacing: 0.5,
     marginBottom: 8,
-    marginLeft: 4,
+    marginLeft: 2,
   },
   textInput: {
     height: 48,
@@ -221,38 +292,44 @@ const styles = StyleSheet.create({
     fontSize: 16,
     color: '#0F172A',
   },
-  colorHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 8,
-  },
-  presetText: {
-    fontSize: 10,
-    fontWeight: '500',
-    color: '#94A3B8',
-  },
-  colorGrid: {
+  colorRow: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    gap: 12,
+    gap: 8,
   },
   colorWrap: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
+    width: 34,
+    height: 34,
+    borderRadius: 17,
     borderWidth: 2,
     alignItems: 'center',
     justifyContent: 'center',
   },
   colorCircle: {
-    width: 24,
-    height: 24,
-    borderRadius: 12,
+    width: 20,
+    height: 20,
+    borderRadius: 10,
   },
-  actions: {
-    marginTop: 32,
-    gap: 16,
+  iconGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 6,
+  },
+  iconWrap: {
+    width: 40,
+    height: 40,
+    borderRadius: 10,
+    borderWidth: 1.5,
+    borderColor: '#F1F5F9',
+    backgroundColor: '#F8FAFC',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  bottomBar: {
+    paddingHorizontal: 20,
+    paddingTop: 12,
+    paddingBottom: 34,
+    backgroundColor: Colors.white,
   },
   saveBtn: {
     backgroundColor: Colors.primary,
@@ -260,8 +337,6 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     alignItems: 'center',
     justifyContent: 'center',
-    flexDirection: 'row',
-    gap: 8,
     shadowColor: Colors.primary,
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.3,
@@ -272,19 +347,6 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '600',
     color: Colors.white,
-  },
-  deleteBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 8,
-    paddingVertical: 16,
-    borderRadius: 12,
-    backgroundColor: '#FEF2F2',
-  },
-  deleteBtnText: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: '#F43F5E',
+    textAlign: 'center',
   },
 });

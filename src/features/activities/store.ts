@@ -76,6 +76,13 @@ export const useActivityStore = create<ActivityState>((set, get) => ({
         ]
       );
 
+      if (activity.schedule_type && ['daily', 'weekly', 'monthly'].includes(activity.schedule_type)) {
+        await db.runAsync(
+          'INSERT INTO recurrence_rules (activity_id, frequency, interval) VALUES (?, ?, ?)',
+          [result.lastInsertRowId, activity.schedule_type, 1]
+        );
+      }
+
       const newActivity: Activity = {
         id: result.lastInsertRowId,
         ...activity,
@@ -112,6 +119,14 @@ export const useActivityStore = create<ActivityState>((set, get) => ({
           id,
         ]
       );
+
+      await db.runAsync('DELETE FROM recurrence_rules WHERE activity_id = ?', [id]);
+      if (activity.schedule_type && ['daily', 'weekly', 'monthly'].includes(activity.schedule_type)) {
+        await db.runAsync(
+          'INSERT INTO recurrence_rules (activity_id, frequency, interval) VALUES (?, ?, ?)',
+          [id, activity.schedule_type, 1]
+        );
+      }
 
       set((state) => ({
         activities: state.activities.map((a) => (a.id === id ? { id, ...activity } : a)),

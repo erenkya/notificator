@@ -8,6 +8,7 @@ import { Ionicons } from '@expo/vector-icons';
 
 import { useActivityStore } from '@/src/features/activities/store';
 import { useLabelStore } from '@/src/features/labels/store';
+import { cancelActivityNotification } from '@/src/features/scheduling/scheduler';
 
 import { ActivityCard } from '@/components/ActivityCard';
 
@@ -16,7 +17,7 @@ export default function Dashboard() {
   const db = useSQLiteContext();
   const router = useRouter();
 
-  const { activities, fetchActivities, isLoading: activitiesLoading } = useActivityStore();
+  const { activities, fetchActivities, deleteActivity, isLoading: activitiesLoading } = useActivityStore();
   const { labels, fetchLabels, isLoading: labelsLoading } = useLabelStore();
 
   useEffect(() => {
@@ -26,6 +27,24 @@ export default function Dashboard() {
 
   const getLabelForActivity = (labelId: number) => {
     return labels.find((l) => l.id === labelId);
+  };
+
+  const handleDeleteActivity = (activityId: number, activityTitle: string) => {
+    Alert.alert(
+      t.deleteActivity || 'Delete Activity',
+      t.deleteActivityConfirm || `Are you sure you want to delete "${activityTitle}"?`,
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Delete',
+          style: 'destructive',
+          onPress: async () => {
+            await cancelActivityNotification(db, activityId);
+            await deleteActivity(db, activityId);
+          },
+        },
+      ]
+    );
   };
 
   const isLoading = activitiesLoading || labelsLoading;
@@ -52,12 +71,7 @@ export default function Dashboard() {
   return (
     <View style={styles.container}>
       <View style={styles.header}>
-        <View style={styles.headerTitleRow}>
-          <View style={styles.headerIconContainer}>
-            <Ionicons name="git-branch-outline" size={20} color={Colors.primary} />
-          </View>
-          <Text style={styles.headerTitle}>{t.notificator || 'Notificator'}</Text>
-        </View>
+        <View style={styles.headerSpacer} />
         <View style={styles.headerActions}>
           <TouchableOpacity 
             style={styles.headerIconButton} 
@@ -69,7 +83,7 @@ export default function Dashboard() {
             style={styles.headerAddButton} 
             onPress={() => {
               if (labels.length === 0) {
-                Alert.alert('No Labels', 'Please create a label first before adding an activity.');
+                Alert.alert(t.noLabelsTitle || 'No Labels', t.createLabelFirstPrompt || 'Please create a label first before adding an activity.');
                 router.push('/labels/new');
               } else {
                 router.push('/new/schedule');
@@ -88,13 +102,13 @@ export default function Dashboard() {
       ) : labels.length === 0 ? (
         <View style={styles.centered}>
           <Text style={[Typography.secondary, { marginBottom: Spacing.md }]}>
-            No labels exist yet.
+            {t.noLabelsExist || 'No labels exist yet.'}
           </Text>
           <TouchableOpacity 
             style={styles.createLabelBtn} 
             onPress={() => router.push('/labels/new')}
           >
-            <Text style={styles.createLabelText}>Create Label</Text>
+            <Text style={styles.createLabelText}>{t.createLabel || 'Create Label'}</Text>
           </TouchableOpacity>
         </View>
       ) : (
@@ -116,12 +130,13 @@ export default function Dashboard() {
                 label={getLabelForActivity(item.label_id)}
                 isLastNode={isLastNode}
                 onPress={() => router.push(`/${item.id}/schedule`)}
+                onDelete={() => handleDeleteActivity(item.id, item.title)}
               />
             );
           }}
           ListEmptyComponent={
             <View style={styles.centered}>
-              <Text style={Typography.secondary}>No activities yet. Create your first one!</Text>
+              <Text style={Typography.secondary}>{t.noActivitiesFirst || 'No activities yet. Create your first one!'}</Text>
             </View>
           }
         />
@@ -147,21 +162,8 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     zIndex: 10,
   },
-  headerTitleRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 12,
-  },
-  headerIconContainer: {
-    backgroundColor: 'rgba(99, 102, 241, 0.1)',
-    padding: 8,
-    borderRadius: 8,
-  },
-  headerTitle: {
-    fontSize: 18,
-    fontWeight: '700',
-    color: '#0F172A',
-    letterSpacing: -0.5,
+  headerSpacer: {
+    width: 40,
   },
   headerActions: {
     flexDirection: 'row',
@@ -221,10 +223,13 @@ const styles = StyleSheet.create({
     paddingHorizontal: Spacing.lg,
     paddingVertical: Spacing.sm,
     borderRadius: 8,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   createLabelText: {
     fontSize: 16,
     fontWeight: '600',
     color: Colors.white,
+    textAlign: 'center',
   },
 });

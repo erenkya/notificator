@@ -25,28 +25,37 @@ export default function ScheduleScreen() {
   const [title, setTitle] = useState('');
   const [selectedLabel, setSelectedLabel] = useState<number | null>(null);
   
-  const [isScheduled, setIsScheduled] = useState(true); // Default matching UI
+  const [repeat, setRepeat] = useState<string>('never'); // never, daily, weekly, monthly
   const [notifPref, setNotifPref] = useState<string>('15m');
   const [notifEnabled, setNotifEnabled] = useState(true);
   
   const [date, setDate] = useState<Date>(new Date());
   const [showTimePicker, setShowTimePicker] = useState(false);
 
+  const hasInitialized = React.useRef(false);
+
   useEffect(() => {
     fetchLabels(db);
     requestNotificationPermissions();
+  }, []);
 
-    if (!isNew) {
+  // Load existing activity data once
+  useEffect(() => {
+    if (!isNew && activities.length > 0 && !hasInitialized.current) {
       const existing = activities.find((a) => a.id.toString() === id);
       if (existing) {
+        hasInitialized.current = true;
         setTitle(existing.title);
         setSelectedLabel(existing.label_id);
         
         if (existing.time) {
           setDate(new Date(existing.time));
-          setIsScheduled(true);
+        }
+        
+        if (existing.schedule_type) {
+          setRepeat(existing.schedule_type);
         } else {
-          setIsScheduled(false);
+          setRepeat('never');
         }
         
         if (existing.notification_preference) {
@@ -56,10 +65,15 @@ export default function ScheduleScreen() {
           setNotifEnabled(false);
         }
       }
-    } else if (labels.length > 0) {
+    }
+  }, [id, activities]);
+
+  // Set default label for new activities (only once when labels load)
+  useEffect(() => {
+    if (isNew && labels.length > 0 && selectedLabel === null) {
       setSelectedLabel(labels[0].id);
     }
-  }, [id, activities, labels]);
+  }, [labels]);
 
   const handleSave = async () => {
     if (!title.trim() || !selectedLabel) {
@@ -71,9 +85,9 @@ export default function ScheduleScreen() {
       label_id: selectedLabel,
       title: title.trim(),
       notes: null,
-      schedule_type: isScheduled ? 'daily' : null,
-      notification_preference: (isScheduled && notifEnabled) ? notifPref : null,
-      time: isScheduled ? date.toISOString() : null,
+      schedule_type: repeat === 'never' ? null : repeat,
+      notification_preference: notifEnabled ? notifPref : null,
+      time: date.toISOString(),
     };
 
     let savedActivityId: number | undefined;
@@ -150,15 +164,18 @@ export default function ScheduleScreen() {
     }
   };
 
-  const currentLabelText = labels.find(l => l.id === selectedLabel)?.name || t.categoryLabel || 'Category Label';
+  const currentLabel = labels.find(l => l.id === selectedLabel);
+  const currentLabelText = currentLabel?.name || t.categoryLabel || 'Category Label';
+  const currentLabelIcon = (currentLabel?.icon || 'briefcase') as keyof typeof Ionicons.glyphMap;
+  const currentLabelColor = currentLabel?.color || '#8B5CF6';
   
   const displayNotifPref = () => {
     switch (notifPref) {
-      case 'at-time': return 'At time of event';
-      case '5m': return '5 minutes before';
-      case '15m': return '15 minutes before';
-      case '1h': return '1 hour before';
-      case '1d': return '1 day before';
+      case 'at-time': return t.atTimeOfEvent || 'At time of event';
+      case '5m': return t.minutesBefore5 || '5 minutes before';
+      case '15m': return t.minutesBefore15 || '15 minutes before';
+      case '1h': return t.hourBefore1 || '1 hour before';
+      case '1d': return t.dayBefore1 || '1 day before';
       default: return notifPref;
     }
   };
@@ -170,10 +187,6 @@ export default function ScheduleScreen() {
 
       <ScrollView style={styles.contentWrap} contentContainerStyle={styles.content}>
         
-        {/* Large Header Title */}
-        <Text style={styles.pageTitle}>
-          {isNew ? (t.newActivity || 'New Activity') : (t.editActivity || 'Edit Activity')}
-        </Text>
         {/* Title Section */}
         <View style={styles.section}>
           <Text style={styles.sectionLabel}>{t.activityTitle || 'Activity Title'}</Text>
@@ -193,7 +206,7 @@ export default function ScheduleScreen() {
           <Text style={styles.sectionLabel}>{t.categoryLabel || 'Category Label'}</Text>
           <TouchableOpacity style={styles.selectBox} onPress={handleLabelSelect} activeOpacity={0.7}>
             <View style={styles.selectBoxLeft}>
-              <MaterialIcons name="work" size={20} color="#8B5CF6" />
+              <Ionicons name={currentLabelIcon} size={20} color={currentLabelColor} />
               <Text style={styles.selectBoxText}>{currentLabelText}</Text>
             </View>
             <MaterialIcons name="unfold-more" size={20} color="#94A3B8" />
@@ -204,27 +217,29 @@ export default function ScheduleScreen() {
         <View style={styles.scheduleRow}>
           <Text style={styles.sectionLabel}>{t.schedule || 'Schedule'}</Text>
           <View style={styles.badge}>
-            <Text style={styles.badgeText}>Automatic detection</Text>
+            <Text style={styles.badgeText}>{t.automaticDetection || 'Automatic detection'}</Text>
           </View>
         </View>
 
         <View style={styles.dateTimeGrid}>
           <View style={styles.dateTimeCol}>
-            <Text style={styles.dateTimeLabel}>Date</Text>
+            <Text style={styles.dateTimeLabel}>{t.date || 'Date'}</Text>
             <TouchableOpacity style={styles.dateTimeBtn} activeOpacity={0.7}>
+              <View style={{ width: 18 }} />
               <Text style={styles.dateTimeBtnText}>
                 {date.toLocaleDateString()}
               </Text>
-              <MaterialIcons name="calendar-today" size={18} color="#94A3B8" style={{marginLeft: 'auto'}} />
+              <MaterialIcons name="calendar-today" size={18} color="#94A3B8" />
             </TouchableOpacity>
           </View>
           <View style={styles.dateTimeCol}>
-            <Text style={styles.dateTimeLabel}>Time</Text>
+            <Text style={styles.dateTimeLabel}>{t.time || 'Time'}</Text>
             <TouchableOpacity style={styles.dateTimeBtn} onPress={() => setShowTimePicker(true)} activeOpacity={0.7}>
+              <View style={{ width: 18 }} />
               <Text style={styles.dateTimeBtnText}>
                 {date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
               </Text>
-              <MaterialIcons name="access-time" size={18} color="#94A3B8" style={{marginLeft: 'auto'}} />
+              <MaterialIcons name="access-time" size={18} color="#94A3B8" />
             </TouchableOpacity>
           </View>
         </View>
@@ -255,12 +270,31 @@ export default function ScheduleScreen() {
           />
         </View>
 
+        {/* Repeat Selector */}
+        <View style={styles.section}>
+          <Text style={styles.sectionLabel}>{t.repeat || 'Repeat'}</Text>
+          <View style={styles.repeatRow}>
+            {['never', 'daily', 'weekly', 'monthly'].map((option) => (
+              <TouchableOpacity
+                key={option}
+                style={[styles.repeatBtn, repeat === option && styles.repeatBtnActive]}
+                onPress={() => setRepeat(option)}
+                activeOpacity={0.7}
+              >
+                <Text style={[styles.repeatBtnText, repeat === option && styles.repeatBtnTextActive]}>
+                  {t[option] ? t[option] : option.charAt(0).toUpperCase() + option.slice(1)}
+                </Text>
+              </TouchableOpacity>
+            ))}
+          </View>
+        </View>
+
         {/* Notification Alert */}
         <View style={styles.notifSection}>
           <View style={styles.notifHeaderRow}>
             <View>
               <Text style={styles.notifTitle}>{t.remindMe || 'Notification Alert'}</Text>
-              <Text style={styles.notifSubtitle}>Notify me before the activity starts</Text>
+              <Text style={styles.notifSubtitle}>{t.notifyMeBefore || 'Notify me before the activity starts'}</Text>
             </View>
             <Switch 
               value={notifEnabled}
@@ -297,7 +331,7 @@ export default function ScheduleScreen() {
       {/* Footer */}
       <View style={styles.footer}>
         <MaterialIcons name="lock" size={14} color="#94A3B8" />
-        <Text style={styles.footerText}>End-to-end encrypted notification service</Text>
+        <Text style={styles.footerText}>{t.endToEndEncrypted || 'End-to-end encrypted notification service'}</Text>
       </View>
     </View>
   );
@@ -400,12 +434,15 @@ const styles = StyleSheet.create({
   dateTimeBtn: {
     flexDirection: 'row',
     alignItems: 'center',
+    justifyContent: 'space-between',
     backgroundColor: '#F1F5F9',
     height: 48,
     borderRadius: 12,
     paddingHorizontal: 16,
   },
   dateTimeBtnText: {
+    flex: 1,
+    textAlign: 'center',
     fontSize: 16,
     fontWeight: '500',
     color: '#0F172A',
@@ -418,6 +455,30 @@ const styles = StyleSheet.create({
     padding: 16,
     marginBottom: 32,
     marginTop: 8,
+  },
+  repeatRow: {
+    flexDirection: 'row',
+    gap: 8,
+  },
+  repeatBtn: {
+    flex: 1,
+    paddingVertical: 12,
+    borderRadius: 8,
+    backgroundColor: '#F1F5F9',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  repeatBtnActive: {
+    backgroundColor: Colors.primary,
+  },
+  repeatBtnText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#64748B',
+    textAlign: 'center',
+  },
+  repeatBtnTextActive: {
+    color: '#ffffff',
   },
   notifSection: {
     borderTopWidth: 1,
@@ -474,6 +535,7 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '600',
     color: Colors.white,
+    textAlign: 'center',
   },
   deleteBtn: {
     flexDirection: 'row',
@@ -488,5 +550,6 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '600',
     color: '#F43F5E',
+    textAlign: 'center',
   },
 });

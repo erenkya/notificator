@@ -28,14 +28,16 @@ export function calculateNextTriggerTime(activity: Activity): Date | null {
   // Handle notification offset
   let offsetMinutes = 0;
   if (activity.notification_preference === '10m') offsetMinutes = 10;
+  if (activity.notification_preference === '15m') offsetMinutes = 15;
   if (activity.notification_preference === '30m') offsetMinutes = 30;
   if (activity.notification_preference === '1h') offsetMinutes = 60;
+  if (activity.notification_preference === '1d') offsetMinutes = 1440;
 
   // Subtract offset to get exact alarm trigger time
   const triggerDate = new Date(targetDate.getTime() - offsetMinutes * 60000);
 
-  // If the calculated trigger is somehow in the past, push it forward (simple fallback)
-  if (isBefore(triggerDate, now)) {
+  // If the calculated trigger is somehow in the past and NOT repeating, push it forward 1 day so it doesn't fail immediately
+  if (isBefore(triggerDate, now) && !activity.schedule_type) {
     return addDays(triggerDate, 1);
   }
 
@@ -54,17 +56,62 @@ export async function scheduleActivityNotification(
     
     if (!triggerDate) return;
 
-    // 1. Schedule with Expo Notifications
+    let trigger: Notifications.NotificationTriggerInput;
+
+    if (activity.schedule_type === 'daily') {
+      trigger = {
+        type: Notifications.SchedulableTriggerInputTypes.CALENDAR,
+        hour: triggerDate.getHours(),
+        minute: triggerDate.getMinutes(),
+        repeats: true,
+      };
+    } else if (activity.schedule_type === 'weekly') {
+      trigger = {
+        type: Notifications.SchedulableTriggerInputTypes.CALENDAR,
+        weekday: triggerDate.getDay() + 1, // 1 is Sunday, 7 is Saturday in Expo
+        hour: triggerDate.getHours(),
+        minute: triggerDate.getMinutes(),
+        repeats: true,
+      };
+    } else if (activity.schedule_type === 'monthly') {
+      trigger = {
+        type: Notifications.SchedulableTriggerInputTypes.CALENDAR,
+        day: triggerDate.getDate(),
+        hour: triggerDate.getHours(),
+        minute: triggerDate.getMinutes(),
+        repeats: true,
+      };
+    } else {
+      trigger = {
+        type: Notifications.SchedulableTriggerInputTypes.DATE,
+        date: triggerDate,
+      };
+    }
+
+    // 1. Fetch Label name
+    let labelName = 'Notificator';
+    try {
+      const labelData = await db.getFirstAsync<{ name: string }>(
+        'SELECT name FROM labels WHERE id = ?',
+        [activity.label_id]
+      );
+      if (labelData?.name) {
+        labelName = labelData.name;
+      }
+    } catch (e) {
+      console.warn('Failed to fetch label name for notification', e);
+    }
+
+    // 2. Schedule with Expo Notifications
+    const bodyContent = activity.notes ? `${activity.title}\n${activity.notes}` : activity.title;
+
     const scheduledNotificationId = await Notifications.scheduleNotificationAsync({
       content: {
-        title: activity.title,
-        body: activity.notes || 'Time for your activity.',
+        title: labelName,
+        body: bodyContent,
         sound: true,
       },
-      trigger: {
-        type: 'date',
-        date: triggerDate,
-      } as any,
+      trigger,
     });
 
     // 2. Persist tracking in SQLite

@@ -12,6 +12,7 @@ export default function TabLayout() {
       screenOptions={{
         tabBarActiveTintColor: Colors.primary,
         tabBarInactiveTintColor: Colors.textSecondary,
+        tabBarShowLabel: false,
         tabBarStyle: {
           backgroundColor: Colors.white,
           borderTopColor: Colors.border,
@@ -30,6 +31,13 @@ export default function TabLayout() {
         options={{
           title: t.calendar || 'Calendar',
           tabBarIcon: ({ color }) => <Ionicons size={24} name="calendar" color={color} />,
+        }}
+      />
+      <Tabs.Screen
+        name="manage"
+        options={{
+          title: t.manage || 'Manage',
+          tabBarIcon: ({ color }) => <Ionicons size={24} name="grid" color={color} />,
         }}
       />
       <Tabs.Screen
