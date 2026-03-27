@@ -1,4 +1,4 @@
-import { Colors, Spacing, Typography } from '@/constants/Design';
+import { Spacing, useAppTheme, useTypography } from '@/constants/Design';
 import { useTranslations } from '@/src/utils/i18n';
 import { isToday, isTomorrow } from 'date-fns';
 import { useSQLiteContext } from 'expo-sqlite';
@@ -8,7 +8,7 @@ import { Ionicons } from '@expo/vector-icons';
 
 import { Activity, useActivityStore } from '@/src/features/activities/store';
 import { useLabelStore } from '@/src/features/labels/store';
-import { calculateNextTriggerTime } from '@/src/features/scheduling/scheduler';
+import { calculateNextTriggerTime, cancelActivityNotification } from '@/src/features/scheduling/scheduler';
 
 import { ActivityCard } from '@/components/ActivityCard';
 import { useRouter } from 'expo-router';
@@ -19,11 +19,14 @@ interface Section {
 }
 
 export default function CalendarScreen() {
+  const Colors = useAppTheme();
+  const Typography = useTypography();
+  const styles = useStyles(Colors, Typography);
   const t = useTranslations();
   const db = useSQLiteContext();
   const router = useRouter();
 
-  const { activities, fetchActivities } = useActivityStore();
+  const { activities, fetchActivities, completeActivity, deleteActivity } = useActivityStore();
   const { labels, fetchLabels } = useLabelStore();
 
   useEffect(() => {
@@ -35,11 +38,36 @@ export default function CalendarScreen() {
     return labels.find((l) => l.id === labelId);
   };
 
+  const handleCompleteActivity = async (activityId: number) => {
+    await cancelActivityNotification(db, activityId);
+    await completeActivity(db, activityId);
+  };
+
+  const handleDeleteActivity = (activityId: number, activityTitle: string) => {
+    import('react-native').then(({ Alert }) => {
+      Alert.alert(
+        t.deleteActivity || 'Delete Activity',
+        t.deleteActivityConfirm || `Are you sure you want to delete "${activityTitle}"?`,
+        [
+          { text: 'Cancel', style: 'cancel' },
+          {
+            text: 'Delete',
+            style: 'destructive',
+            onPress: async () => {
+              await cancelActivityNotification(db, activityId);
+              await deleteActivity(db, activityId);
+            },
+          },
+        ]
+      );
+    });
+  };
+
   // Process activities to group them by calculated timeline target
   const getGroupedActivities = (): Section[] => {
-    const today: Activity[] = [];
-    const tomorrow: Activity[] = [];
-    const upcoming: Activity[] = [];
+    const today: { act: Activity, trigger: Date }[] = [];
+    const tomorrow: { act: Activity, trigger: Date }[] = [];
+    const upcoming: { act: Activity, trigger: Date }[] = [];
     const unscheduled: Activity[] = [];
 
     activities.forEach(act => {
@@ -47,18 +75,22 @@ export default function CalendarScreen() {
       if (!trigger) {
         unscheduled.push(act);
       } else if (isToday(trigger)) {
-        today.push(act);
+        today.push({ act, trigger });
       } else if (isTomorrow(trigger)) {
-        tomorrow.push(act);
+        tomorrow.push({ act, trigger });
       } else {
-        upcoming.push(act);
+        upcoming.push({ act, trigger });
       }
     });
 
+    today.sort((a, b) => a.trigger.getTime() - b.trigger.getTime());
+    tomorrow.sort((a, b) => a.trigger.getTime() - b.trigger.getTime());
+    upcoming.sort((a, b) => a.trigger.getTime() - b.trigger.getTime());
+
     const sections: Section[] = [];
-    if (today.length) sections.push({ title: t.today || 'Today', data: today });
-    if (tomorrow.length) sections.push({ title: t.tomorrow || 'Tomorrow', data: tomorrow });
-    if (upcoming.length) sections.push({ title: t.upcoming || 'Upcoming', data: upcoming });
+    if (today.length) sections.push({ title: t.today || 'Today', data: today.map(x => x.act) });
+    if (tomorrow.length) sections.push({ title: t.tomorrow || 'Tomorrow', data: tomorrow.map(x => x.act) });
+    if (upcoming.length) sections.push({ title: t.upcoming || 'Upcoming', data: upcoming.map(x => x.act) });
     if (unscheduled.length) sections.push({ title: t.unscheduled || 'Unscheduled', data: unscheduled });
 
     return sections;
@@ -79,6 +111,8 @@ export default function CalendarScreen() {
             activity={item}
             label={getLabelForActivity(item.label_id)}
             onPress={() => router.push(`/${item.id}/schedule`)}
+            onDelete={() => handleDeleteActivity(item.id, item.title)}
+            onComplete={() => handleCompleteActivity(item.id)}
           />
         )}
         ListEmptyComponent={
@@ -91,7 +125,7 @@ export default function CalendarScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const useStyles = (Colors: any, Typography: any) => StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: Colors.background,

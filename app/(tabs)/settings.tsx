@@ -1,8 +1,8 @@
-import { Colors } from '@/constants/Design';
+import { Spacing, useAppTheme, useTypography } from '@/constants/Design';
 import { useSettingsStore } from '@/src/features/settings/store';
 import { useTranslations } from '@/src/utils/i18n';
 import { Ionicons } from '@expo/vector-icons';
-import { ScrollView, StyleSheet, Text, View, SafeAreaView } from 'react-native';
+import { ScrollView, StyleSheet, Text, View, SafeAreaView, Switch } from 'react-native';
 
 import { SearchablePicker } from '@/components/SearchablePicker';
 import { COUNTRIES, getTimezones } from '@/src/data/localeData';
@@ -18,7 +18,11 @@ const LANGUAGES = [
 ];
 
 export default function SettingsScreen() {
-  const { language, setLanguage, country, timezone, setTimezoneAndCountry } = useSettingsStore();
+  const Colors = useAppTheme();
+  const Typography = useTypography();
+  const styles = useStyles(Colors, Typography);
+  
+  const { language, setLanguage, country, timezone, setTimezoneAndCountry, themeMode, setThemeMode } = useSettingsStore();
   const t = useTranslations();
 
   const timezones = useMemo(() => getTimezones(), []);
@@ -35,9 +39,32 @@ export default function SettingsScreen() {
     await setTimezoneAndCountry(code, country);
   };
 
+  const handleThemeToggle = async (isDark: boolean) => {
+    await setThemeMode(isDark ? 'dark' : 'light');
+  };
+
+  const isDarkEnabled = themeMode === 'dark';
+
   return (
     <SafeAreaView style={styles.safeArea}>
       <ScrollView style={styles.container} contentContainerStyle={styles.content}>
+      
+        {/* Dark Mode Toggle */}
+        <View style={styles.sectionBlock}>
+          <Text style={styles.sectionLabel}>{t.appearance || 'Appearance'}</Text>
+          <View style={styles.switchRow}>
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
+              <Ionicons name="moon-outline" size={22} color={Colors.textPrimary} />
+              <Text style={styles.switchText}>{t.darkMode || 'Dark Mode'}</Text>
+            </View>
+            <Switch
+              value={isDarkEnabled}
+              onValueChange={handleThemeToggle}
+              trackColor={{ false: Colors.border, true: Colors.primary }}
+              ios_backgroundColor={Colors.border}
+            />
+          </View>
+        </View>
 
         {/* Language */}
         <View style={styles.sectionBlock}>
@@ -88,10 +115,10 @@ export default function SettingsScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const useStyles = (Colors: any, Typography: any) => StyleSheet.create({
   safeArea: {
     flex: 1,
-    backgroundColor: '#F6F6F8',
+    backgroundColor: Colors.background,
   },
   container: {
     flex: 1,
@@ -105,20 +132,33 @@ const styles = StyleSheet.create({
     marginBottom: 24,
   },
   sectionLabel: {
-    fontSize: 12,
+    ...Typography.secondary,
     fontWeight: '700',
-    color: '#64748B',
     textTransform: 'uppercase',
     letterSpacing: 0.5,
     paddingHorizontal: 4,
     marginBottom: 10,
+  },
+  switchRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    backgroundColor: Colors.white,
+    padding: 16,
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: Colors.border,
+  },
+  switchText: {
+    ...Typography.body,
+    fontWeight: '500',
   },
   infoCard: {
     flexDirection: 'row',
     backgroundColor: 'rgba(99, 102, 241, 0.05)',
     borderRadius: 16,
     borderWidth: 1,
-    borderColor: 'rgba(99, 102, 241, 0.2)',
+    borderColor: Colors.border,
     padding: 16,
     gap: 12,
     alignItems: 'flex-start',
@@ -126,8 +166,7 @@ const styles = StyleSheet.create({
   },
   infoText: {
     flex: 1,
-    fontSize: 12,
+    ...Typography.secondary,
     lineHeight: 18,
-    color: '#475569',
   },
 });

@@ -1,4 +1,4 @@
-import { Colors, Spacing, Typography } from '@/constants/Design';
+import { Spacing, useAppTheme, useTypography } from '@/constants/Design';
 import { useTranslations } from '@/src/utils/i18n';
 import { useRouter } from 'expo-router';
 import { useSQLiteContext } from 'expo-sqlite';
@@ -11,6 +11,10 @@ import { LabelCard } from '@/components/LabelCard';
 import { useLabelStore } from '@/src/features/labels/store';
 
 export default function LabelsScreen() {
+  const Colors = useAppTheme();
+  const Typography = useTypography();
+  const styles = useStyles(Colors, Typography);
+
   const db = useSQLiteContext();
   const router = useRouter();
   const t = useTranslations();
@@ -69,7 +73,7 @@ export default function LabelsScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const useStyles = (Colors: any, Typography: any) => StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: Colors.background,

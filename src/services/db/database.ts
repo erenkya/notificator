@@ -20,7 +20,8 @@ export async function initDatabase(db: SQLiteDatabase) {
       notes TEXT,
       schedule_type TEXT, -- daily, weekly, monthly, custom
       notification_preference TEXT,
-      time TEXT -- store ISO time string
+      time TEXT, -- store ISO time string
+      status TEXT DEFAULT 'ACTIVE'
     );
 
 
@@ -51,6 +52,12 @@ export async function initDatabase(db: SQLiteDatabase) {
 
   try {
     await db.execAsync('ALTER TABLE labels ADD COLUMN icon TEXT;');
+  } catch (error) {
+    // Ignore duplicate column error
+  }
+
+  try {
+    await db.execAsync("ALTER TABLE activities ADD COLUMN status TEXT DEFAULT 'ACTIVE';");
   } catch (error) {
     // Ignore duplicate column error
   }

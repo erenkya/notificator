@@ -1,4 +1,4 @@
-import { Colors, Spacing, Typography } from '@/constants/Design';
+import { Spacing, useAppTheme, useTypography } from '@/constants/Design';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useSQLiteContext } from 'expo-sqlite';
 import DateTimePicker from '@react-native-community/datetimepicker';
@@ -13,6 +13,10 @@ import { cancelActivityNotification, scheduleActivityNotification } from '@/src/
 import { useTranslations } from '@/src/utils/i18n';
 
 export default function ScheduleScreen() {
+  const Colors = useAppTheme();
+  const Typography = useTypography();
+  const styles = useStyles(Colors, Typography);
+
   const { id } = useLocalSearchParams<{ id: string }>();
   const isNew = id === 'new';
   const db = useSQLiteContext();
@@ -25,7 +29,7 @@ export default function ScheduleScreen() {
   const [title, setTitle] = useState('');
   const [selectedLabel, setSelectedLabel] = useState<number | null>(null);
   
-  const [repeat, setRepeat] = useState<string>('never'); // never, daily, weekly, monthly
+  const [repeat, setRepeat] = useState<string>('never');
   const [notifPref, setNotifPref] = useState<string>('15m');
   const [notifEnabled, setNotifEnabled] = useState(true);
   
@@ -39,7 +43,6 @@ export default function ScheduleScreen() {
     requestNotificationPermissions();
   }, []);
 
-  // Load existing activity data once
   useEffect(() => {
     if (!isNew && activities.length > 0 && !hasInitialized.current) {
       const existing = activities.find((a) => a.id.toString() === id);
@@ -68,7 +71,6 @@ export default function ScheduleScreen() {
     }
   }, [id, activities]);
 
-  // Set default label for new activities (only once when labels load)
   useEffect(() => {
     if (isNew && labels.length > 0 && selectedLabel === null) {
       setSelectedLabel(labels[0].id);
@@ -101,7 +103,7 @@ export default function ScheduleScreen() {
 
     if (savedActivityId) {
       const activityToSchedule = { id: savedActivityId, ...payload };
-      if (payload.schedule_type && payload.notification_preference) {
+      if (payload.notification_preference) {
         await scheduleActivityNotification(db, activityToSchedule as any);
       } else {
         await cancelActivityNotification(db, savedActivityId);
@@ -134,7 +136,6 @@ export default function ScheduleScreen() {
         }
       );
     } else {
-      // Very simple cycle for Android without adding extra modal UI
       const currentIndex = labels.findIndex(l => l.id === selectedLabel);
       const nextIndex = (currentIndex + 1) % labels.length;
       setSelectedLabel(labels[nextIndex].id);
@@ -167,7 +168,7 @@ export default function ScheduleScreen() {
   const currentLabel = labels.find(l => l.id === selectedLabel);
   const currentLabelText = currentLabel?.name || t.categoryLabel || 'Category Label';
   const currentLabelIcon = (currentLabel?.icon || 'briefcase') as keyof typeof Ionicons.glyphMap;
-  const currentLabelColor = currentLabel?.color || '#8B5CF6';
+  const currentLabelColor = currentLabel?.color || Colors.primary;
   
   const displayNotifPref = () => {
     switch (notifPref) {
@@ -182,12 +183,8 @@ export default function ScheduleScreen() {
 
   return (
     <View style={styles.container}>
-      {/* Header removed as per UX update. Modal can be dragged down. */}
-      {/* Title moved to content area */}
-
       <ScrollView style={styles.contentWrap} contentContainerStyle={styles.content}>
         
-        {/* Title Section */}
         <View style={styles.section}>
           <Text style={styles.sectionLabel}>{t.activityTitle || 'Activity Title'}</Text>
           <View style={styles.inputWrap}>
@@ -196,12 +193,11 @@ export default function ScheduleScreen() {
               value={title}
               onChangeText={setTitle}
               placeholder={t.activityTitlePlaceholder || 'What needs to be done?'}
-              placeholderTextColor="#94A3B8"
+              placeholderTextColor={Colors.textSecondary}
             />
           </View>
         </View>
         
-        {/* Label Selector */}
         <View style={styles.section}>
           <Text style={styles.sectionLabel}>{t.categoryLabel || 'Category Label'}</Text>
           <TouchableOpacity style={styles.selectBox} onPress={handleLabelSelect} activeOpacity={0.7}>
@@ -209,11 +205,10 @@ export default function ScheduleScreen() {
               <Ionicons name={currentLabelIcon} size={20} color={currentLabelColor} />
               <Text style={styles.selectBoxText}>{currentLabelText}</Text>
             </View>
-            <MaterialIcons name="unfold-more" size={20} color="#94A3B8" />
+            <MaterialIcons name="unfold-more" size={20} color={Colors.textSecondary} />
           </TouchableOpacity>
         </View>
 
-        {/* Schedule */}
         <View style={styles.scheduleRow}>
           <Text style={styles.sectionLabel}>{t.schedule || 'Schedule'}</Text>
           <View style={styles.badge}>
@@ -229,7 +224,7 @@ export default function ScheduleScreen() {
               <Text style={styles.dateTimeBtnText}>
                 {date.toLocaleDateString()}
               </Text>
-              <MaterialIcons name="calendar-today" size={18} color="#94A3B8" />
+              <MaterialIcons name="calendar-today" size={18} color={Colors.textSecondary} />
             </TouchableOpacity>
           </View>
           <View style={styles.dateTimeCol}>
@@ -239,7 +234,7 @@ export default function ScheduleScreen() {
               <Text style={styles.dateTimeBtnText}>
                 {date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
               </Text>
-              <MaterialIcons name="access-time" size={18} color="#94A3B8" />
+              <MaterialIcons name="access-time" size={18} color={Colors.textSecondary} />
             </TouchableOpacity>
           </View>
         </View>
@@ -253,10 +248,10 @@ export default function ScheduleScreen() {
               setShowTimePicker(false);
               if (selectedDate) setDate(selectedDate);
             }}
+            themeVariant={Colors.background === '#0F172A' ? 'dark' : 'light'}
           />
         )}
 
-        {/* Native Inline Date Picker replacing HTML calendar */}
         <View style={styles.calendarWrap}>
           <DateTimePicker
             value={date}
@@ -265,16 +260,15 @@ export default function ScheduleScreen() {
             onChange={(event, selectedDate) => {
               if (selectedDate) setDate(selectedDate);
             }}
-            themeVariant="light"
+            themeVariant={Colors.background === '#0F172A' ? 'dark' : 'light'}
             accentColor={Colors.primary}
           />
         </View>
 
-        {/* Repeat Selector */}
         <View style={styles.section}>
           <Text style={styles.sectionLabel}>{t.repeat || 'Repeat'}</Text>
           <View style={styles.repeatRow}>
-            {['never', 'daily', 'weekly', 'monthly'].map((option) => (
+            {['never', 'daily', 'weekdays', 'weekends', 'weekly', 'monthly'].map((option) => (
               <TouchableOpacity
                 key={option}
                 style={[styles.repeatBtn, repeat === option && styles.repeatBtnActive]}
@@ -289,7 +283,6 @@ export default function ScheduleScreen() {
           </View>
         </View>
 
-        {/* Notification Alert */}
         <View style={styles.notifSection}>
           <View style={styles.notifHeaderRow}>
             <View>
@@ -299,20 +292,19 @@ export default function ScheduleScreen() {
             <Switch 
               value={notifEnabled}
               onValueChange={setNotifEnabled}
-              trackColor={{ false: '#E2E8F0', true: Colors.primary }}
-              ios_backgroundColor="#E2E8F0"
+              trackColor={{ false: Colors.border, true: Colors.primary }}
+              ios_backgroundColor={Colors.border}
             />
           </View>
           
           {notifEnabled && (
             <TouchableOpacity style={styles.selectBox} onPress={handleNotifSelect} activeOpacity={0.7}>
               <Text style={styles.selectBoxText}>{displayNotifPref()}</Text>
-              <MaterialIcons name="expand-more" size={20} color="#94A3B8" />
+              <MaterialIcons name="expand-more" size={20} color={Colors.textSecondary} />
             </TouchableOpacity>
           )}
         </View>
 
-        {/* Action Buttons at the Bottom */}
         <View style={styles.bottomActions}>
           <TouchableOpacity style={styles.primarySaveBtn} onPress={handleSave} activeOpacity={0.8}>
             <Text style={styles.primarySaveBtnText}>{t.save || 'Save'}</Text>
@@ -328,25 +320,21 @@ export default function ScheduleScreen() {
 
       </ScrollView>
 
-      {/* Footer */}
       <View style={styles.footer}>
-        <MaterialIcons name="lock" size={14} color="#94A3B8" />
+        <MaterialIcons name="lock" size={14} color={Colors.textSecondary} />
         <Text style={styles.footerText}>{t.endToEndEncrypted || 'End-to-end encrypted notification service'}</Text>
       </View>
     </View>
   );
 }
 
-const styles = StyleSheet.create({
+const useStyles = (Colors: any, Typography: any) => StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#F6F6F8', // background-light
+    backgroundColor: Colors.background,
   },
   pageTitle: {
-    fontSize: 28,
-    fontWeight: '700',
-    color: '#0F172A',
-    letterSpacing: -0.5,
+    ...Typography.title,
     marginBottom: 32,
     marginTop: 16,
   },
@@ -361,30 +349,26 @@ const styles = StyleSheet.create({
     marginBottom: 32,
   },
   sectionLabel: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: '#64748B', // slate-500
+    ...Typography.secondary,
     textTransform: 'uppercase',
     letterSpacing: 0.5,
     marginBottom: 8,
     marginLeft: 4,
   },
   inputWrap: {
-    backgroundColor: '#F1F5F9', // slate-100
+    backgroundColor: Colors.white,
     borderRadius: 12,
   },
   inputLarge: {
     minHeight: 56,
     paddingHorizontal: 16,
-    fontSize: 18,
-    fontWeight: '500',
-    color: '#0F172A',
+    ...Typography.body,
   },
   selectBox: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    backgroundColor: '#F1F5F9', // slate-100
+    backgroundColor: Colors.white,
     borderRadius: 12,
     height: 56,
     paddingHorizontal: 16,
@@ -395,8 +379,7 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   selectBoxText: {
-    fontSize: 16,
-    color: '#0F172A',
+    ...Typography.body,
   },
   scheduleRow: {
     flexDirection: 'row',
@@ -426,16 +409,15 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   dateTimeLabel: {
-    fontSize: 12,
+    ...Typography.secondary,
     fontWeight: '500',
-    color: '#94A3B8',
     marginLeft: 4,
   },
   dateTimeBtn: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    backgroundColor: '#F1F5F9',
+    backgroundColor: Colors.white,
     height: 48,
     borderRadius: 12,
     paddingHorizontal: 16,
@@ -443,38 +425,38 @@ const styles = StyleSheet.create({
   dateTimeBtnText: {
     flex: 1,
     textAlign: 'center',
-    fontSize: 16,
+    ...Typography.body,
     fontWeight: '500',
-    color: '#0F172A',
   },
   calendarWrap: {
-    backgroundColor: '#F8FAFC',
+    backgroundColor: Colors.white,
     borderRadius: 16,
     borderWidth: 1,
-    borderColor: '#F1F5F9',
+    borderColor: Colors.border,
     padding: 16,
     marginBottom: 32,
     marginTop: 8,
   },
   repeatRow: {
     flexDirection: 'row',
+    flexWrap: 'wrap',
     gap: 8,
   },
   repeatBtn: {
-    flex: 1,
+    paddingHorizontal: 12,
     paddingVertical: 12,
     borderRadius: 8,
-    backgroundColor: '#F1F5F9',
+    backgroundColor: Colors.white,
     alignItems: 'center',
     justifyContent: 'center',
+    minWidth: '30%',
   },
   repeatBtnActive: {
     backgroundColor: Colors.primary,
   },
   repeatBtnText: {
-    fontSize: 14,
+    ...Typography.secondary,
     fontWeight: '600',
-    color: '#64748B',
     textAlign: 'center',
   },
   repeatBtnTextActive: {
@@ -482,7 +464,7 @@ const styles = StyleSheet.create({
   },
   notifSection: {
     borderTopWidth: 1,
-    borderTopColor: '#F1F5F9',
+    borderTopColor: Colors.border,
     paddingTop: 16,
   },
   notifHeaderRow: {
@@ -492,13 +474,12 @@ const styles = StyleSheet.create({
     marginBottom: 16,
   },
   notifTitle: {
-    fontSize: 14,
+    ...Typography.body,
     fontWeight: '600',
-    color: '#0F172A',
   },
   notifSubtitle: {
+    ...Typography.secondary,
     fontSize: 12,
-    color: '#64748B',
     marginTop: 2,
   },
   footer: {
@@ -507,13 +488,13 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     gap: 8,
     padding: 24,
-    backgroundColor: '#F8FAFC',
+    backgroundColor: Colors.background,
     borderTopWidth: 1,
-    borderTopColor: '#F1F5F9',
+    borderTopColor: Colors.border,
   },
   footerText: {
+    ...Typography.secondary,
     fontSize: 12,
-    color: '#94A3B8',
   },
   bottomActions: {
     marginTop: 40,
@@ -532,9 +513,9 @@ const styles = StyleSheet.create({
     elevation: 4,
   },
   primarySaveBtnText: {
-    fontSize: 16,
+    ...Typography.body,
     fontWeight: '600',
-    color: Colors.white,
+    color: '#ffffff',
     textAlign: 'center',
   },
   deleteBtn: {
@@ -544,10 +525,12 @@ const styles = StyleSheet.create({
     gap: 8,
     paddingVertical: 16,
     borderRadius: 12,
-    backgroundColor: '#FEF2F2',
+    backgroundColor: Colors.white,
+    borderWidth: 1,
+    borderColor: '#FEF2F2',
   },
   deleteBtnText: {
-    fontSize: 16,
+    ...Typography.body,
     fontWeight: '600',
     color: '#F43F5E',
     textAlign: 'center',

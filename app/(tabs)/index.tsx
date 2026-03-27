@@ -1,9 +1,9 @@
-import { Colors, Spacing, Typography } from '@/constants/Design';
+import { Spacing, useAppTheme, useTypography } from '@/constants/Design';
 import { useTranslations } from '@/src/utils/i18n';
 import { useRouter } from 'expo-router';
 import { useSQLiteContext } from 'expo-sqlite';
-import { useEffect } from 'react';
-import { ActivityIndicator, SectionList, StyleSheet, Text, TouchableOpacity, View, Alert } from 'react-native';
+import { useEffect, useState } from 'react';
+import { ActivityIndicator, SectionList, StyleSheet, Text, TouchableOpacity, View, Alert, TextInput } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 
 import { useActivityStore } from '@/src/features/activities/store';
@@ -13,11 +13,15 @@ import { cancelActivityNotification } from '@/src/features/scheduling/scheduler'
 import { ActivityCard } from '@/components/ActivityCard';
 
 export default function Dashboard() {
+  const Colors = useAppTheme();
+  const Typography = useTypography();
+  const styles = useStyles(Colors, Typography);
   const t = useTranslations();
   const db = useSQLiteContext();
   const router = useRouter();
+  const [searchQuery, setSearchQuery] = useState('');
 
-  const { activities, fetchActivities, deleteActivity, isLoading: activitiesLoading } = useActivityStore();
+  const { activities, fetchActivities, deleteActivity, completeActivity, isLoading: activitiesLoading } = useActivityStore();
   const { labels, fetchLabels, isLoading: labelsLoading } = useLabelStore();
 
   useEffect(() => {
@@ -47,6 +51,11 @@ export default function Dashboard() {
     );
   };
 
+  const handleCompleteActivity = async (activityId: number) => {
+    await cancelActivityNotification(db, activityId);
+    await completeActivity(db, activityId);
+  };
+
   const isLoading = activitiesLoading || labelsLoading;
 
   // Hierarchical view: Sections are Labels
@@ -55,7 +64,16 @@ export default function Dashboard() {
     
     // Group by existing labels
     labels.forEach(label => {
-      const labelActivities = activities.filter(a => a.label_id === label.id);
+      const labelActivities = activities.filter(a => {
+        if (a.label_id !== label.id) return false;
+        if (!searchQuery) return true;
+        
+        const query = searchQuery.toLowerCase();
+        return (
+          a.title.toLowerCase().includes(query) ||
+          (a.notes && a.notes.toLowerCase().includes(query))
+        );
+      });
       if (labelActivities.length > 0) {
         sections.push({
           title: label.name,
@@ -71,7 +89,16 @@ export default function Dashboard() {
   return (
     <View style={styles.container}>
       <View style={styles.header}>
-        <View style={styles.headerSpacer} />
+        <View style={styles.searchContainer}>
+          <Ionicons name="search" size={20} color={Colors.textSecondary} />
+          <TextInput
+            style={styles.searchInput}
+            placeholder={t.search || 'Search...'}
+            placeholderTextColor={Colors.textSecondary}
+            value={searchQuery}
+            onChangeText={setSearchQuery}
+          />
+        </View>
         <View style={styles.headerActions}>
           <TouchableOpacity 
             style={styles.headerIconButton} 
@@ -131,6 +158,7 @@ export default function Dashboard() {
                 isLastNode={isLastNode}
                 onPress={() => router.push(`/${item.id}/schedule`)}
                 onDelete={() => handleDeleteActivity(item.id, item.title)}
+                onComplete={() => handleCompleteActivity(item.id)}
               />
             );
           }}
@@ -145,25 +173,40 @@ export default function Dashboard() {
   );
 }
 
-const styles = StyleSheet.create({
+const useStyles = (Colors: any, Typography: any) => StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#F8FAFC',
+    backgroundColor: Colors.background,
   },
   header: {
     paddingTop: 60, // approximate SafeArea top
     paddingHorizontal: 16,
     paddingBottom: 16,
-    backgroundColor: 'rgba(248, 250, 252, 0.9)',
+    backgroundColor: Colors.background,
     borderBottomWidth: 1,
-    borderBottomColor: '#E2E8F0',
+    borderBottomColor: Colors.border,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
     zIndex: 10,
   },
-  headerSpacer: {
-    width: 40,
+  searchContainer: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: Colors.white,
+    borderRadius: 8,
+    paddingHorizontal: 12,
+    height: 40,
+    marginRight: 16,
+    borderWidth: 1,
+    borderColor: Colors.border,
+  },
+  searchInput: {
+    flex: 1,
+    marginLeft: 8,
+    fontSize: 14,
+    color: Colors.textPrimary,
   },
   headerActions: {
     flexDirection: 'row',
@@ -214,7 +257,7 @@ const styles = StyleSheet.create({
   sectionHeader: {
     fontSize: 14,
     fontWeight: '600',
-    color: '#64748B',
+    color: Colors.textSecondary,
     textTransform: 'uppercase',
     letterSpacing: 0.5,
   },

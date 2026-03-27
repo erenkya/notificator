@@ -1,4 +1,4 @@
-import { Colors, Spacing, Typography } from '@/constants/Design';
+import { Spacing, useAppTheme, useTypography } from '@/constants/Design';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useSQLiteContext } from 'expo-sqlite';
 import React, { useEffect, useState } from 'react';
@@ -54,6 +54,10 @@ const ICON_OPTIONS: { name: keyof typeof Ionicons.glyphMap; label: string }[] = 
 ];
 
 export default function LabelDetailScreen() {
+  const Colors = useAppTheme();
+  const Typography = useTypography();
+  const styles = useStyles(Colors, Typography);
+
   const { id } = useLocalSearchParams<{ id: string }>();
   const isNew = id === 'new';
   const db = useSQLiteContext();
@@ -224,7 +228,7 @@ export default function LabelDetailScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const useStyles = (Colors: any, Typography: any) => StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: Colors.white,
@@ -241,7 +245,7 @@ const styles = StyleSheet.create({
   handle: {
     width: 48,
     height: 5,
-    backgroundColor: '#E2E8F0',
+    backgroundColor: Colors.border,
     borderRadius: 8,
   },
   topBar: {
@@ -274,9 +278,8 @@ const styles = StyleSheet.create({
     marginBottom: 20,
   },
   label: {
-    fontSize: 11,
+    ...Typography.secondary,
     fontWeight: '700',
-    color: '#64748B',
     textTransform: 'uppercase',
     letterSpacing: 0.5,
     marginBottom: 8,
@@ -284,13 +287,12 @@ const styles = StyleSheet.create({
   },
   textInput: {
     height: 48,
-    backgroundColor: '#F8FAFC',
+    backgroundColor: Colors.background,
     borderWidth: 1,
-    borderColor: '#E2E8F0',
+    borderColor: Colors.border,
     borderRadius: 12,
     paddingHorizontal: 16,
-    fontSize: 16,
-    color: '#0F172A',
+    ...Typography.body,
   },
   colorRow: {
     flexDirection: 'row',
@@ -320,8 +322,8 @@ const styles = StyleSheet.create({
     height: 40,
     borderRadius: 10,
     borderWidth: 1.5,
-    borderColor: '#F1F5F9',
-    backgroundColor: '#F8FAFC',
+    borderColor: Colors.border,
+    backgroundColor: Colors.background,
     alignItems: 'center',
     justifyContent: 'center',
   },

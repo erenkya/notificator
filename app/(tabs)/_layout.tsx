@@ -1,4 +1,4 @@
-import { Colors } from '@/constants/Design';
+import { useAppTheme } from '@/constants/Design';
 import { useTranslations } from '@/src/utils/i18n';
 import { Ionicons } from '@expo/vector-icons';
 import { Tabs } from 'expo-router';
@@ -6,6 +6,7 @@ import React from 'react';
 
 export default function TabLayout() {
   const t = useTranslations();
+  const Colors = useAppTheme();
 
   return (
     <Tabs
@@ -31,6 +32,13 @@ export default function TabLayout() {
         options={{
           title: t.calendar || 'Calendar',
           tabBarIcon: ({ color }) => <Ionicons size={24} name="calendar" color={color} />,
+        }}
+      />
+      <Tabs.Screen
+        name="history"
+        options={{
+          title: t.history ?? 'History',
+          tabBarIcon: ({ color }) => <Ionicons size={24} name="time" color={color} />,
         }}
       />
       <Tabs.Screen

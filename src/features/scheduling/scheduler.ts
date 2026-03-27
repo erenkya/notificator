@@ -7,26 +7,18 @@ import { Activity } from '../activities/store';
  * Calculates the exact trigger Date for an activity based on its schedule and preference.
  */
 export function calculateNextTriggerTime(activity: Activity): Date | null {
-  if (!activity.schedule_type) return null;
+  if (!activity.schedule_type && !activity.time) return null;
 
   const now = new Date();
   
   let targetDate = setMinutes(setHours(now, 9), 0);
   if (activity.time) {
-    const timeRef = new Date(activity.time);
-    targetDate = setMinutes(setHours(now, timeRef.getHours()), timeRef.getMinutes());
-  }
-
-  if (activity.schedule_type === 'daily') {
-    targetDate = addDays(targetDate, 1);
-  } else if (activity.schedule_type === 'weekly') {
-    targetDate = addWeeks(targetDate, 1);
-  } else if (activity.schedule_type === 'monthly') {
-    targetDate = addMonths(targetDate, 1);
+    targetDate = new Date(activity.time);
   }
 
   // Handle notification offset
   let offsetMinutes = 0;
+  if (activity.notification_preference === '5m') offsetMinutes = 5;
   if (activity.notification_preference === '10m') offsetMinutes = 10;
   if (activity.notification_preference === '15m') offsetMinutes = 15;
   if (activity.notification_preference === '30m') offsetMinutes = 30;
@@ -35,11 +27,6 @@ export function calculateNextTriggerTime(activity: Activity): Date | null {
 
   // Subtract offset to get exact alarm trigger time
   const triggerDate = new Date(targetDate.getTime() - offsetMinutes * 60000);
-
-  // If the calculated trigger is somehow in the past and NOT repeating, push it forward 1 day so it doesn't fail immediately
-  if (isBefore(triggerDate, now) && !activity.schedule_type) {
-    return addDays(triggerDate, 1);
-  }
 
   return triggerDate;
 }
@@ -56,36 +43,64 @@ export async function scheduleActivityNotification(
     
     if (!triggerDate) return;
 
-    let trigger: Notifications.NotificationTriggerInput;
+    // Do not schedule a non-repeating notification if its trigger date is already explicitly in the past
+    if (!activity.schedule_type && triggerDate.getTime() < Date.now()) {
+      console.log('Skipping scheduling: Trigger date is in the past for a one-time event.');
+      // Still, let's clear whatever background notification trace was associated with this activity, just in case
+      await cancelActivityNotification(db, activity.id);
+      return; 
+    }
 
-    if (activity.schedule_type === 'daily') {
-      trigger = {
+    let triggers: Notifications.NotificationTriggerInput[] = [];
+
+    if (activity.schedule_type === 'weekdays') {
+      [2, 3, 4, 5, 6].forEach(day => {
+        triggers.push({
+          type: Notifications.SchedulableTriggerInputTypes.CALENDAR,
+          weekday: day,
+          hour: triggerDate.getHours(),
+          minute: triggerDate.getMinutes(),
+          repeats: true,
+        });
+      });
+    } else if (activity.schedule_type === 'weekends') {
+      [1, 7].forEach(day => {
+        triggers.push({
+          type: Notifications.SchedulableTriggerInputTypes.CALENDAR,
+          weekday: day,
+          hour: triggerDate.getHours(),
+          minute: triggerDate.getMinutes(),
+          repeats: true,
+        });
+      });
+    } else if (activity.schedule_type === 'daily') {
+      triggers.push({
         type: Notifications.SchedulableTriggerInputTypes.CALENDAR,
         hour: triggerDate.getHours(),
         minute: triggerDate.getMinutes(),
         repeats: true,
-      };
+      });
     } else if (activity.schedule_type === 'weekly') {
-      trigger = {
+      triggers.push({
         type: Notifications.SchedulableTriggerInputTypes.CALENDAR,
         weekday: triggerDate.getDay() + 1, // 1 is Sunday, 7 is Saturday in Expo
         hour: triggerDate.getHours(),
         minute: triggerDate.getMinutes(),
         repeats: true,
-      };
+      });
     } else if (activity.schedule_type === 'monthly') {
-      trigger = {
+      triggers.push({
         type: Notifications.SchedulableTriggerInputTypes.CALENDAR,
         day: triggerDate.getDate(),
         hour: triggerDate.getHours(),
         minute: triggerDate.getMinutes(),
         repeats: true,
-      };
+      });
     } else {
-      trigger = {
+      triggers.push({
         type: Notifications.SchedulableTriggerInputTypes.DATE,
         date: triggerDate,
-      };
+      });
     }
 
     // 1. Fetch Label name
@@ -104,28 +119,28 @@ export async function scheduleActivityNotification(
 
     // 2. Schedule with Expo Notifications
     const bodyContent = activity.notes ? `${activity.title}\n${activity.notes}` : activity.title;
-
-    const scheduledNotificationId = await Notifications.scheduleNotificationAsync({
-      content: {
-        title: labelName,
-        body: bodyContent,
-        sound: true,
-      },
-      trigger,
-    });
-
-    // 2. Persist tracking in SQLite
     const scheduledTimeInt = triggerDate.getTime();
     
-    // Attempt to clear previous notification for this activity in the DB just in case
+    // Attempt to clear previous notifications for this activity in the DB just in case
     await cancelActivityNotification(db, activity.id);
 
-    await db.runAsync(
-      'INSERT INTO notifications (activity_id, notification_id, scheduled_time, status) VALUES (?, ?, ?, ?)',
-      [activity.id, scheduledNotificationId, scheduledTimeInt, 'PENDING']
-    );
+    for (const trig of triggers) {
+      const scheduledNotificationId = await Notifications.scheduleNotificationAsync({
+        content: {
+          title: labelName,
+          body: bodyContent,
+          sound: true,
+        },
+        trigger: trig,
+      });
 
-    console.log(`Scheduled notification ${scheduledNotificationId} for ${triggerDate.toString()}`);
+      await db.runAsync(
+        'INSERT INTO notifications (activity_id, notification_id, scheduled_time, status) VALUES (?, ?, ?, ?)',
+        [activity.id, scheduledNotificationId, scheduledTimeInt, 'PENDING']
+      );
+
+      console.log(`Scheduled notification ${scheduledNotificationId} for ${triggerDate.toString()}`);
+    }
   } catch (err) {
     console.error('Error scheduling notification', err);
   }
@@ -139,22 +154,24 @@ export async function cancelActivityNotification(
   activityId: number
 ): Promise<void> {
   try {
-    // 1. Get the current active notification ID for this activity
-    const record = await db.getFirstAsync<{ notification_id: string }>(
+    // 1. Get the current active notification IDs for this activity
+    const records = await db.getAllAsync<{ notification_id: string }>(
       'SELECT notification_id FROM notifications WHERE activity_id = ? AND status = ?',
       [activityId, 'PENDING']
     );
 
-    if (record?.notification_id) {
-      // 2. Cancel in Expo
-      await Notifications.cancelScheduledNotificationAsync(record.notification_id);
+    for (const record of records) {
+      if (record.notification_id) {
+        // 2. Cancel in Expo
+        await Notifications.cancelScheduledNotificationAsync(record.notification_id);
 
-      // 3. Mark cancelled in SQLite
-      await db.runAsync(
-        'UPDATE notifications SET status = ? WHERE notification_id = ?',
-        ['CANCELLED', record.notification_id]
-      );
-      console.log(`Cancelled notification ${record.notification_id}`);
+        // 3. Mark cancelled in SQLite
+        await db.runAsync(
+          'UPDATE notifications SET status = ? WHERE notification_id = ?',
+          ['CANCELLED', record.notification_id]
+        );
+        console.log(`Cancelled notification ${record.notification_id}`);
+      }
     }
   } catch (err) {
     console.error('Error cancelling notification', err);

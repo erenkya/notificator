@@ -1,4 +1,4 @@
-import { Colors, Spacing, Typography } from '@/constants/Design';
+import { Spacing, useAppTheme, useTypography } from '@/constants/Design';
 import { useTranslations } from '@/src/utils/i18n';
 import { useRouter } from 'expo-router';
 import { useSQLiteContext } from 'expo-sqlite';
@@ -22,6 +22,10 @@ import { formatDateTime, formatSchedule } from '@/src/utils/formatDate';
 type Tab = 'labels' | 'activities';
 
 export default function ManageScreen() {
+  const Colors = useAppTheme();
+  const Typography = useTypography();
+  const styles = useStyles(Colors, Typography);
+
   const t = useTranslations();
   const db = useSQLiteContext();
   const router = useRouter();
@@ -169,7 +173,7 @@ export default function ManageScreen() {
           <Ionicons
             name="pricetags"
             size={18}
-            color={activeTab === 'labels' ? Colors.primary : '#94A3B8'}
+            color={activeTab === 'labels' ? Colors.primary : Colors.textSecondary}
           />
           <Text style={[styles.tabText, activeTab === 'labels' && styles.tabTextActive]}>
             {t.labels || 'Labels'} ({labels.length})
@@ -182,7 +186,7 @@ export default function ManageScreen() {
           <Ionicons
             name="list"
             size={18}
-            color={activeTab === 'activities' ? Colors.primary : '#94A3B8'}
+            color={activeTab === 'activities' ? Colors.primary : Colors.textSecondary}
           />
           <Text style={[styles.tabText, activeTab === 'activities' && styles.tabTextActive]}>
             {t.activities || 'Activities'} ({activities.length})
@@ -199,7 +203,7 @@ export default function ManageScreen() {
           contentContainerStyle={styles.list}
           ListEmptyComponent={
             <View style={styles.emptyWrap}>
-              <Ionicons name="pricetags-outline" size={48} color="#CBD5E1" />
+              <Ionicons name="pricetags-outline" size={48} color={Colors.border} />
               <Text style={styles.emptyText}>{t.noLabelsYet || 'No labels yet'}</Text>
               <Text style={styles.emptySubtext}>{t.createFirstLabel || 'Create your first label to get started'}</Text>
             </View>
@@ -213,7 +217,7 @@ export default function ManageScreen() {
           contentContainerStyle={styles.list}
           ListEmptyComponent={
             <View style={styles.emptyWrap}>
-              <Ionicons name="list-outline" size={48} color="#CBD5E1" />
+              <Ionicons name="list-outline" size={48} color={Colors.border} />
               <Text style={styles.emptyText}>{t.noActivitiesYet || 'No activities yet'}</Text>
               <Text style={styles.emptySubtext}>{t.createLabelFirst || 'Create a label first, then add activities'}</Text>
             </View>
@@ -244,21 +248,21 @@ export default function ManageScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const useStyles = (Colors: any, Typography: any) => StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#F6F6F8',
+    backgroundColor: Colors.background,
   },
   tabBar: {
     flexDirection: 'row',
     marginHorizontal: 16,
     marginTop: 8,
     marginBottom: 4,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: Colors.white,
     borderRadius: 14,
     padding: 4,
     borderWidth: 1,
-    borderColor: '#E2E8F0',
+    borderColor: Colors.border,
   },
   tab: {
     flex: 1,
@@ -270,12 +274,12 @@ const styles = StyleSheet.create({
     borderRadius: 10,
   },
   tabActive: {
-    backgroundColor: 'rgba(99, 102, 241, 0.08)',
+    backgroundColor: Colors.border,
   },
   tabText: {
-    fontSize: 14,
+    ...Typography.body,
     fontWeight: '600',
-    color: '#94A3B8',
+    color: Colors.textSecondary,
   },
   tabTextActive: {
     color: Colors.primary,
@@ -285,14 +289,14 @@ const styles = StyleSheet.create({
     paddingBottom: 100,
   },
   card: {
-    backgroundColor: '#FFFFFF',
+    backgroundColor: Colors.white,
     borderRadius: 14,
     marginBottom: 8,
     flexDirection: 'row',
     alignItems: 'center',
     borderWidth: 1,
-    borderColor: '#F1F5F9',
-    shadowColor: '#64748B',
+    borderColor: Colors.border,
+    shadowColor: Colors.textSecondary,
     shadowOffset: { width: 0, height: 1 },
     shadowOpacity: 0.04,
     shadowRadius: 3,
@@ -316,13 +320,12 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   cardTitle: {
-    fontSize: 15,
+    ...Typography.body,
     fontWeight: '600',
-    color: '#0F172A',
   },
   cardSubtitle: {
+    ...Typography.secondary,
     fontSize: 12,
-    color: '#94A3B8',
     marginTop: 2,
   },
   cardActions: {
@@ -334,7 +337,7 @@ const styles = StyleSheet.create({
     width: 32,
     height: 32,
     borderRadius: 8,
-    backgroundColor: '#F1F5F9',
+    backgroundColor: Colors.background,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -352,13 +355,12 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   emptyText: {
-    fontSize: 16,
+    ...Typography.body,
     fontWeight: '600',
-    color: '#64748B',
   },
   emptySubtext: {
+    ...Typography.secondary,
     fontSize: 13,
-    color: '#94A3B8',
   },
   fab: {
     position: 'absolute',
